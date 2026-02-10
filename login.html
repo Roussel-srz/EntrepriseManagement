@@ -136,8 +136,24 @@
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
 
-    <script src="backend/auth.js"></script>
     <script>
+        // Configuration pour GitHub Pages
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://entreprise-management-server.onrender.com';
+        
+        // API helper
+        const API = {
+            post: async (endpoint, data) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                return response.ok ? await response.json() : null;
+            }
+        };
+
         // Initialize Lucide icons
         lucide.createIcons();
 
@@ -172,6 +188,61 @@
             }, 3000);
         }
 
+        // Handle Enter key
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+
+        // Check if already logged in
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                if (window.location.hostname === 'localhost') {
+                    window.location.href = '/';
+                } else {
+                    window.location.href = 'https://entreprise-management-server.onrender.com';
+                }
+            }
+        });
+
+        // Login function
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('message');
+
+            if (!username || !password) {
+                message.textContent = 'Veuillez remplir tous les champs';
+                message.className = 'text-red-500 text-sm text-center';
+                return;
+            }
+
+            try {
+                const result = await API.post('/api/auth/login', { username, password });
+                
+                if (result) {
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    
+                    // Redirect to main app
+                    if (window.location.hostname === 'localhost') {
+                        window.location.href = '/';
+                    } else {
+                        window.location.href = 'https://entreprise-management-server.onrender.com';
+                    }
+                } else {
+                    message.textContent = 'Identifiants incorrects';
+                    message.className = 'text-red-500 text-sm text-center';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                message.textContent = 'Erreur de connexion au serveur';
+                message.className = 'text-red-500 text-sm text-center';
+            }
+        }
+
         // Login form handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -188,20 +259,8 @@
             btnLoader.classList.remove('hidden');
             
             try {
-                const result = await auth.login(username, password);
-                
-                if (result.success) {
-                    showToast('Connexion réussie! Redirection...', 'success');
-                    
-                    // Redirect to main application
-                    setTimeout(() => {
-                        window.location.href = '/index.html';
-                    }, 1000);
-                } else {
-                    showToast(result.error || 'Erreur de connexion', 'error');
-                }
+                await login();
             } catch (error) {
-                showToast('Erreur de connexion au serveur', 'error');
                 console.error('Login error:', error);
             } finally {
                 // Reset button state
@@ -210,8 +269,6 @@
                 btnLoader.classList.add('hidden');
             }
         });
-
-        // Check if already authenticated
         if (auth.isAuthenticated()) {
             window.location.href = '/index.html';
         }

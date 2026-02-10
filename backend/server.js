@@ -20,7 +20,18 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:3000',
+        'https://localhost:3000',
+        'https://entreprise-management-server.onrender.com',
+        'https://roussel-srz.github.io',
+        'http://127.0.0.1:5500'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Company-Key']
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../')));
 
@@ -212,19 +223,24 @@ const checkPermission = (permission) => {
 
 // Company registration endpoint
 app.post('/api/register-company', (req, res) => {
+    console.log('Company registration request:', req.body);
+    
     const { companyKey, companyName, adminEmail } = req.body;
     
     if (!companyKey || !companyName || !adminEmail) {
+        console.log('Missing fields:', { companyKey, companyName, adminEmail });
         return res.status(400).json({ error: 'Missing required fields' });
     }
     
     // Check if company already exists
     defaultDb.get('SELECT * FROM companies WHERE company_key = ?', [companyKey], (err, row) => {
         if (err) {
+            console.error('Database error checking company:', err);
             return res.status(500).json({ error: 'Database error' });
         }
         
         if (row) {
+            console.log('Company already exists:', row);
             return res.status(400).json({ error: 'Company key already exists' });
         }
         
@@ -232,8 +248,11 @@ app.post('/api/register-company', (req, res) => {
         defaultDb.run('INSERT INTO companies (company_key, company_name, admin_email) VALUES (?, ?, ?)', 
             [companyKey, companyName, adminEmail], function(err) {
                 if (err) {
+                    console.error('Error inserting company:', err);
                     return res.status(500).json({ error: 'Registration failed' });
                 }
+                
+                console.log('Company registered successfully:', { companyKey, companyName, adminEmail });
                 
                 // Initialize company database
                 getCompanyDatabase(companyKey);

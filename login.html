@@ -195,7 +195,7 @@
                     
                     // Redirect to main application
                     setTimeout(() => {
-                        window.location.href = '/index.html';
+                        window.location.href = 'index.html';
                     }, 1000);
                 } else {
                     showToast(result.error || 'Erreur de connexion', 'error');
@@ -213,7 +213,7 @@
 
         // Check if already authenticated
         if (auth.isAuthenticated()) {
-            window.location.href = '/index.html';
+            window.location.href = 'index.html';
         }
 
         // Handle forgot password

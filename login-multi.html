@@ -293,11 +293,7 @@
                     showToast('Connexion réussie!', 'success');
                     
                     setTimeout(() => {
-                        if (window.location.hostname === 'localhost') {
-                            window.location.href = '/';
-                        } else {
-                            window.location.href = 'https://entreprise-management-server.onrender.com';
-                        }
+                        window.location.href = 'index.html';
                     }, 1000);
                 } else {
                     message.textContent = 'Identifiants incorrects';
@@ -380,11 +376,7 @@
         window.addEventListener('load', function() {
             const token = localStorage.getItem('token');
             if (token) {
-                if (window.location.hostname === 'localhost') {
-                    window.location.href = '/';
-                } else {
-                    window.location.href = 'https://entreprise-management-server.onrender.com';
-                }
+                window.location.href = 'index.html';
             }
         });
     </script>

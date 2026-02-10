@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entreprise Management - Connexion Multi-Entreprises</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+    <div class="glass-morphism rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <!-- Logo and Title -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+                <i data-lucide="building-2" class="w-8 h-8 text-white"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">Entreprise Management</h1>
+            <p class="text-gray-600 text-sm mt-2">Système Multi-Entreprises</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex mb-6 bg-gray-100 rounded-lg p-1">
+            <button onclick="switchTab('login')" id="login-tab" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors tab-button active bg-white text-blue-600 shadow">
+                Connexion
+            </button>
+            <button onclick="switchTab('register')" id="register-tab" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors tab-button text-gray-600">
+                Inscription
+            </button>
+        </div>
+
+        <!-- Login Tab -->
+        <div id="login-tab-content" class="tab-content active">
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clé d'Entreprise</label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="company-key" 
+                            required
+                            placeholder="ex: ma-entreprise"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="key" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom d'utilisateur</label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="username" 
+                            required
+                            placeholder="admin"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="user" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
+                    <div class="relative">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            required
+                            placeholder="•••••••••"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="lock" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="loginBtn"
+                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="loginBtnText">Se connecter</span>
+                    <span id="loginBtnLoader" class="hidden">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline"></i>
+                        Connexion...
+                    </span>
+                </button>
+            </form>
+
+            <!-- Default Credentials Info -->
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p class="text-sm text-blue-800 font-medium mb-2">Identifiants par défaut :</p>
+                <div class="text-xs text-blue-700 space-y-1">
+                    <p><strong>Clé:</strong> demo</p>
+                    <p><strong>Admin:</strong> admin / admin123</p>
+                    <p class="text-blue-600">* Changez ces identifiants après la première connexion</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register Tab -->
+        <div id="register-tab-content" class="tab-content">
+            <form id="registerForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Clé d'Entreprise</label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="reg-company-key" 
+                            required
+                            placeholder="ex: ma-entreprise"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="key" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Identifiant unique pour votre entreprise</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nom de l'Entreprise</label>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="company-name" 
+                            required
+                            placeholder="Ma Entreprise SARL"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="building" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Administrateur</label>
+                    <div class="relative">
+                        <input 
+                            type="email" 
+                            id="admin-email" 
+                            required
+                            placeholder="admin@entreprise.com"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pl-10"
+                        >
+                        <i data-lucide="mail" class="absolute left-3 top-3.5 w-4 h-4 text-gray-400"></i>
+                    </div>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="registerBtn"
+                    class="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 focus:ring-4 focus:ring-green-500 focus:ring-opacity-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="registerBtnText">Créer l'entreprise</span>
+                    <span id="registerBtnLoader" class="hidden">
+                        <i data-lucide="loader-2" class="w-5 h-5 animate-spin inline"></i>
+                        Création...
+                    </span>
+                </button>
+            </form>
+
+            <div class="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                <p class="text-sm text-green-800">
+                    <strong>Important:</strong> Une fois l'entreprise créée, utilisez la clé d'entreprise pour vous connecter avec l'identifiant admin / admin123
+                </p>
+            </div>
+        </div>
+
+        <!-- Message -->
+        <div id="message" class="mt-4 text-sm text-center"></div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+    <script>
+        // Configuration
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://entreprise-management-server.onrender.com';
+        
+        // API helper
+        const API = {
+            post: async (endpoint, data, headers = {}) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...headers
+                    },
+                    body: JSON.stringify(data)
+                });
+                return response.ok ? await response.json() : null;
+            }
+        };
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Tab switching
+        function switchTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active', 'bg-white', 'text-blue-600', 'shadow');
+                button.classList.add('text-gray-600');
+            });
+            
+            // Show selected tab
+            document.getElementById(`${tab}-tab-content`).classList.add('active');
+            
+            // Add active class to selected button
+            const activeBtn = document.getElementById(`${tab}-tab`);
+            activeBtn.classList.add('active', 'bg-white', 'text-blue-600', 'shadow');
+            activeBtn.classList.remove('text-gray-600');
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = {
+                'success': 'bg-green-500',
+                'error': 'bg-red-500',
+                'info': 'bg-blue-500',
+                'warning': 'bg-yellow-500'
+            }[type] || 'bg-gray-500';
+            
+            toast.className = `${bgColor} text-white px-6 py-3 rounded-lg shadow-lg mb-2 transform transition-all duration-300 translate-x-full`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => {
+                    toastContainer.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // Login function
+        async function login() {
+            const companyKey = document.getElementById('company-key').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('message');
+
+            if (!companyKey || !username || !password) {
+                message.textContent = 'Veuillez remplir tous les champs';
+                message.className = 'text-red-500 text-sm text-center';
+                return;
+            }
+
+            const loginBtn = document.getElementById('loginBtn');
+            const btnText = document.getElementById('loginBtnText');
+            const btnLoader = document.getElementById('loginBtnLoader');
+            
+            loginBtn.disabled = true;
+            btnText.classList.add('hidden');
+            btnLoader.classList.remove('hidden');
+
+            try {
+                const result = await API.post('/api/company-login', { username, password }, {
+                    'X-Company-Key': companyKey
+                });
+                
+                if (result) {
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('companyKey', result.companyKey);
+                    
+                    showToast('Connexion réussie!', 'success');
+                    
+                    setTimeout(() => {
+                        if (window.location.hostname === 'localhost') {
+                            window.location.href = '/';
+                        } else {
+                            window.location.href = 'https://entreprise-management-server.onrender.com';
+                        }
+                    }, 1000);
+                } else {
+                    message.textContent = 'Identifiants incorrects';
+                    message.className = 'text-red-500 text-sm text-center';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                message.textContent = 'Erreur de connexion au serveur';
+                message.className = 'text-red-500 text-sm text-center';
+            } finally {
+                loginBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnLoader.classList.add('hidden');
+            }
+        }
+
+        // Register function
+        async function registerCompany() {
+            const companyKey = document.getElementById('reg-company-key').value;
+            const companyName = document.getElementById('company-name').value;
+            const adminEmail = document.getElementById('admin-email').value;
+            const message = document.getElementById('message');
+
+            if (!companyKey || !companyName || !adminEmail) {
+                message.textContent = 'Veuillez remplir tous les champs';
+                message.className = 'text-red-500 text-sm text-center';
+                return;
+            }
+
+            const registerBtn = document.getElementById('registerBtn');
+            const btnText = document.getElementById('registerBtnText');
+            const btnLoader = document.getElementById('registerBtnLoader');
+            
+            registerBtn.disabled = true;
+            btnText.classList.add('hidden');
+            btnLoader.classList.remove('hidden');
+
+            try {
+                const result = await API.post('/api/register-company', { 
+                    companyKey, 
+                    companyName, 
+                    adminEmail 
+                });
+                
+                if (result) {
+                    showToast('Entreprise créée avec succès!', 'success');
+                    
+                    // Switch to login tab and fill company key
+                    switchTab('login');
+                    document.getElementById('company-key').value = companyKey;
+                    message.textContent = `Entreprise "${companyName}" créée! Utilisez la clé "${companyKey}" pour vous connecter.`;
+                    message.className = 'text-green-500 text-sm text-center';
+                } else {
+                    message.textContent = 'Erreur lors de la création de l\'entreprise';
+                    message.className = 'text-red-500 text-sm text-center';
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                message.textContent = 'Erreur de connexion au serveur';
+                message.className = 'text-red-500 text-sm text-center';
+            } finally {
+                registerBtn.disabled = false;
+                btnText.classList.remove('hidden');
+                btnLoader.classList.add('hidden');
+            }
+        }
+
+        // Form handlers
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            login();
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            registerCompany();
+        });
+
+        // Check if already logged in
+        window.addEventListener('load', function() {
+            const token = localStorage.getItem('token');
+            if (token) {
+                if (window.location.hostname === 'localhost') {
+                    window.location.href = '/';
+                } else {
+                    window.location.href = 'https://entreprise-management-server.onrender.com';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

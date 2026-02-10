@@ -24,106 +24,163 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../')));
 
-// Database initialization
-const db = new sqlite3.Database('./enterprise.db');
+// Multi-tenant database management
+const databases = new Map();
 
-// Create tables
-db.serialize(() => {
-    // Users table
-    db.run(`CREATE TABLE IF NOT EXISTS users (
+// Function to get or create database for a company
+function getCompanyDatabase(companyKey) {
+    if (!databases.has(companyKey)) {
+        const dbPath = `./databases/${companyKey}.db`;
+        const db = new sqlite3.Database(dbPath);
+        
+        // Initialize tables for this company
+        initializeCompanyDatabase(db, companyKey);
+        databases.set(companyKey, db);
+    }
+    return databases.get(companyKey);
+}
+
+// Initialize company database with tables
+function initializeCompanyDatabase(db, companyKey) {
+    db.serialize(() => {
+        // Users table
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            permissions TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME,
+            is_active BOOLEAN DEFAULT 1
+        )`);
+
+        // User sessions table
+        db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            token TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME,
+            is_active BOOLEAN DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
+        // Audit logs table
+        db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            table_name TEXT,
+            record_id INTEGER,
+            old_values TEXT,
+            new_values TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )`);
+
+        // Products table
+        db.run(`CREATE TABLE IF NOT EXISTS produits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL,
+            description TEXT,
+            prix_unitaire REAL DEFAULT 0,
+            quantite_stock INTEGER DEFAULT 0,
+            seuil_alerte INTEGER DEFAULT 10,
+            categorie TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Sales table
+        db.run(`CREATE TABLE IF NOT EXISTS ventes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produit_id INTEGER,
+            quantite INTEGER NOT NULL,
+            prix_unitaire REAL NOT NULL,
+            montant_total REAL NOT NULL,
+            client_nom TEXT,
+            client_telephone TEXT,
+            date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (produit_id) REFERENCES produits (id)
+        )`);
+
+        // Credits table
+        db.run(`CREATE TABLE IF NOT EXISTS credits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_nom TEXT NOT NULL,
+            client_telephone TEXT,
+            montant_total REAL NOT NULL,
+            montant_paye REAL DEFAULT 0,
+            montant_restant REAL NOT NULL,
+            date_echeance DATE,
+            statut TEXT DEFAULT 'en_attente',
+            date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Expenses table
+        db.run(`CREATE TABLE IF NOT EXISTS depenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            description TEXT NOT NULL,
+            montant REAL NOT NULL,
+            categorie TEXT,
+            date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Company info table
+        db.run(`CREATE TABLE IF NOT EXISTS company_info (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company_key TEXT UNIQUE NOT NULL,
+            company_name TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )`);
+
+        // Insert company info
+        db.run(`INSERT OR IGNORE INTO company_info (company_key, company_name) VALUES (?, ?)`, 
+            [companyKey, `Entreprise ${companyKey}`]);
+
+        // Create default admin user for this company
+        const adminPassword = bcrypt.hashSync('admin123', 10);
+        db.run(`INSERT OR IGNORE INTO users (username, email, password, role, permissions) 
+                VALUES (?, ?, ?, ?, ?)`, 
+                ['admin', `admin@${companyKey}.com`, adminPassword, 'admin', JSON.stringify(['all'])]);
+    });
+}
+
+// Create databases directory if it doesn't exist
+const fs = require('fs');
+if (!fs.existsSync('./databases')) {
+    fs.mkdirSync('./databases');
+}
+
+// Default database for company registration
+const defaultDb = new sqlite3.Database('./enterprise.db');
+
+// Company registration table
+defaultDb.serialize(() => {
+    defaultDb.run(`CREATE TABLE IF NOT EXISTS companies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user',
-        permissions TEXT,
+        company_key TEXT UNIQUE NOT NULL,
+        company_name TEXT NOT NULL,
+        admin_email TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_login DATETIME,
         is_active BOOLEAN DEFAULT 1
     )`);
-
-    // User sessions table
-    db.run(`CREATE TABLE IF NOT EXISTS user_sessions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        token TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        expires_at DATETIME,
-        is_active BOOLEAN DEFAULT 1,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )`);
-
-    // Audit logs table
-    db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        action TEXT NOT NULL,
-        table_name TEXT,
-        record_id INTEGER,
-        old_values TEXT,
-        new_values TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        ip_address TEXT,
-        FOREIGN KEY (user_id) REFERENCES users (id)
-    )`);
-
-    // Products table
-    db.run(`CREATE TABLE IF NOT EXISTS produits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nom TEXT NOT NULL,
-        description TEXT,
-        prix_unitaire REAL DEFAULT 0,
-        quantite_stock INTEGER DEFAULT 0,
-        seuil_alerte INTEGER DEFAULT 10,
-        categorie TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Sales table
-    db.run(`CREATE TABLE IF NOT EXISTS ventes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        produit_id INTEGER,
-        quantite INTEGER NOT NULL,
-        prix_unitaire REAL NOT NULL,
-        montant_total REAL NOT NULL,
-        client_nom TEXT,
-        client_telephone TEXT,
-        date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (produit_id) REFERENCES produits (id)
-    )`);
-
-    // Credits table
-    db.run(`CREATE TABLE IF NOT EXISTS credits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_nom TEXT NOT NULL,
-        client_telephone TEXT,
-        montant_total REAL NOT NULL,
-        montant_paye REAL DEFAULT 0,
-        montant_restant REAL NOT NULL,
-        date_echeance DATE,
-        statut TEXT DEFAULT 'en_attente',
-        date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Expenses table
-    db.run(`CREATE TABLE IF NOT EXISTS depenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        description TEXT NOT NULL,
-        montant REAL NOT NULL,
-        categorie TEXT,
-        date_ajout DATETIME DEFAULT CURRENT_TIMESTAMP,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Create default admin user
-    const adminPassword = bcrypt.hashSync('admin123', 10);
-    db.run(`INSERT OR IGNORE INTO users (username, email, password, role, permissions) 
-            VALUES (?, ?, ?, ?, ?)`, 
-            ['admin', 'admin@enterprise.com', adminPassword, 'admin', JSON.stringify(['all'])]);
 });
+
+// Middleware to extract company key from request
+const extractCompanyKey = (req, res, next) => {
+    const companyKey = req.headers['x-company-key'] || req.query.company_key || 'default';
+    req.companyKey = companyKey;
+    req.db = getCompanyDatabase(companyKey);
+    next();
+};
 
 // JWT middleware
 const authenticateToken = (req, res, next) => {
@@ -152,6 +209,97 @@ const checkPermission = (permission) => {
         }
     };
 };
+
+// Company registration endpoint
+app.post('/api/register-company', (req, res) => {
+    const { companyKey, companyName, adminEmail } = req.body;
+    
+    if (!companyKey || !companyName || !adminEmail) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Check if company already exists
+    defaultDb.get('SELECT * FROM companies WHERE company_key = ?', [companyKey], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: 'Database error' });
+        }
+        
+        if (row) {
+            return res.status(400).json({ error: 'Company key already exists' });
+        }
+        
+        // Register new company
+        defaultDb.run('INSERT INTO companies (company_key, company_name, admin_email) VALUES (?, ?, ?)', 
+            [companyKey, companyName, adminEmail], function(err) {
+                if (err) {
+                    return res.status(500).json({ error: 'Registration failed' });
+                }
+                
+                // Initialize company database
+                getCompanyDatabase(companyKey);
+                
+                res.json({ 
+                    message: 'Company registered successfully',
+                    companyKey,
+                    companyName,
+                    adminEmail
+                });
+            });
+    });
+});
+
+// Company login endpoint
+app.post('/api/company-login', extractCompanyKey, async (req, res) => {
+    const { username, password } = req.body;
+    const companyKey = req.companyKey;
+
+    try {
+        req.db.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username], async (err, user) => {
+            if (err || !user) {
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+
+            const validPassword = await bcrypt.compare(password, user.password);
+            if (!validPassword) {
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+
+            // Update last login
+            req.db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+
+            // Generate JWT token
+            const token = jwt.sign(
+                { 
+                    id: user.id, 
+                    username: user.username, 
+                    role: user.role, 
+                    permissions: JSON.parse(user.permissions || '[]'),
+                    companyKey: companyKey
+                },
+                JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            // Store session
+            req.db.run('INSERT INTO user_sessions (user_id, token, expires_at) VALUES (?, ?, ?)', 
+                [user.id, token, new Date(Date.now() + 24 * 60 * 60 * 1000)]);
+
+            res.json({
+                token,
+                user: {
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    permissions: JSON.parse(user.permissions || '[]')
+                },
+                companyKey
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
 
 // Auth routes
 app.post('/api/auth/login', async (req, res) => {
@@ -208,86 +356,56 @@ app.post('/api/auth/logout', authenticateToken, (req, res) => {
     res.json({ message: 'Logged out successfully' });
 });
 
-app.get('/api/auth/me', authenticateToken, (req, res) => {
-    res.json({ user: req.user });
+app.get('/api/auth/me', extractCompanyKey, authenticateToken, (req, res) => {
+    res.json({ user: req.user, companyKey: req.companyKey });
 });
 
-app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
-    const { current_password, new_password } = req.body;
-    
-    try {
-        // Get user from database
-        db.get('SELECT * FROM users WHERE id = ?', [req.user.id], async (err, user) => {
-            if (err || !user) {
-                return res.status(404).json({ error: 'User not found' });
-            }
-
-            // Verify current password
-            const validPassword = await bcrypt.compare(current_password, user.password);
-            if (!validPassword) {
-                return res.status(401).json({ error: 'Current password is incorrect' });
-            }
-
-            // Hash new password
-            const hashedPassword = await bcrypt.hash(new_password, 10);
-
-            // Update password
-            db.run('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id], (err) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Failed to update password' });
-                }
-
-                // Log audit
-                logAudit(req.user.id, 'CHANGE_PASSWORD', 'users', req.user.id, null, JSON.stringify({ timestamp: new Date().toISOString() }));
-
-                res.json({ message: 'Password changed successfully' });
-            });
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
-    }
-});
-
-// User management routes (admin only)
-app.get('/api/users', authenticateToken, checkPermission('user_management'), (req, res) => {
-    db.all('SELECT id, username, email, role, permissions, created_at, last_login, is_active FROM users', (err, users) => {
+// Users management routes
+app.get('/api/users', extractCompanyKey, authenticateToken, checkPermission('user_management'), (req, res) => {
+    req.db.all('SELECT id, username, email, role, permissions, created_at, last_login, is_active FROM users ORDER BY created_at DESC', (err, users) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         
-        const formattedUsers = users.map(user => ({
+        const processedUsers = users.map(user => ({
             ...user,
             permissions: JSON.parse(user.permissions || '[]')
         }));
         
-        res.json(formattedUsers);
+        res.json(processedUsers);
     });
 });
 
-app.post('/api/users', authenticateToken, checkPermission('user_management'), async (req, res) => {
+app.post('/api/users', extractCompanyKey, authenticateToken, checkPermission('user_management'), async (req, res) => {
     const { username, email, password, role, permissions } = req.body;
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        db.run('INSERT INTO users (username, email, password, role, permissions) VALUES (?, ?, ?, ?, ?)', 
-            [username, email, hashedPassword, role, JSON.stringify(permissions || [])], 
-            function(err) {
-                if (err) return res.status(500).json({ error: 'User creation failed' });
-                
-                // Log audit
-                logAudit(req.user.id, 'CREATE_USER', 'users', this.lastID, null, JSON.stringify({ username, email, role }));
-                
-                res.json({ message: 'User created successfully', userId: this.lastID });
-            });
-    } catch (error) {
-        res.status(500).json({ error: 'Server error' });
+    if (!username || !email || !password || !role) {
+        return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    req.db.run('INSERT INTO users (username, email, password, role, permissions) VALUES (?, ?, ?, ?, ?)', 
+        [username, email, hashedPassword, role, JSON.stringify(permissions || [])], function(err) {
+            if (err) {
+                if (err.message.includes('UNIQUE constraint failed')) {
+                    return res.status(400).json({ error: 'Username or email already exists' });
+                }
+                return res.status(500).json({ error: 'User creation failed' });
+            }
+
+            logAudit(req.user.id, 'CREATE_USER', 'users', this.lastID, null, JSON.stringify({ username, email, role, permissions }));
+
+            res.json({ 
+                message: 'User created successfully',
+                userId: this.lastID
+            });
+        });
 });
 
-app.put('/api/users/:id', authenticateToken, checkPermission('user_management'), async (req, res) => {
+app.put('/api/users/:id', extractCompanyKey, authenticateToken, checkPermission('user_management'), async (req, res) => {
     const { id } = req.params;
     const { username, email, role, permissions, is_active, password } = req.body;
 
-    db.get('SELECT * FROM users WHERE id = ?', [id], async (err, user) => {
+    req.db.get('SELECT * FROM users WHERE id = ?', [id], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: 'User not found' });
 
         const oldValues = JSON.stringify(user);
@@ -295,7 +413,6 @@ app.put('/api/users/:id', authenticateToken, checkPermission('user_management'),
         let updateQuery = 'UPDATE users SET username = ?, email = ?, role = ?, permissions = ?, is_active = ?';
         let updateParams = [username, email, role, JSON.stringify(permissions || []), is_active];
         
-        // Add password to update if provided
         if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
             updateQuery += ', password = ?';
@@ -305,10 +422,9 @@ app.put('/api/users/:id', authenticateToken, checkPermission('user_management'),
         updateQuery += ' WHERE id = ?';
         updateParams.push(id);
         
-        db.run(updateQuery, updateParams, function(err) {
+        req.db.run(updateQuery, updateParams, function(err) {
             if (err) return res.status(500).json({ error: 'User update failed' });
             
-            // Log audit
             logAudit(req.user.id, 'UPDATE_USER', 'users', id, oldValues, JSON.stringify({ username, email, role, permissions, is_active }));
             
             res.json({ message: 'User updated successfully' });
@@ -316,23 +432,21 @@ app.put('/api/users/:id', authenticateToken, checkPermission('user_management'),
     });
 });
 
-app.delete('/api/users/:id', authenticateToken, checkPermission('user_management'), (req, res) => {
+app.delete('/api/users/:id', extractCompanyKey, authenticateToken, checkPermission('user_management'), (req, res) => {
     const { id } = req.params;
     
-    // Prevent self-deletion
     if (parseInt(id) === req.user.id) {
         return res.status(400).json({ error: 'Cannot delete your own account' });
     }
     
-    db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
+    req.db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
         if (err || !user) return res.status(404).json({ error: 'User not found' });
         
         const oldValues = JSON.stringify(user);
         
-        db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
+        req.db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
             if (err) return res.status(500).json({ error: 'User deletion failed' });
             
-            // Log audit
             logAudit(req.user.id, 'DELETE_USER', 'users', id, oldValues, null);
             
             res.json({ message: 'User deleted successfully' });

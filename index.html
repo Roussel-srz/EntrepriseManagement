@@ -11,7 +11,170 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="backend/auth.js"></script>
+    <script>
+        // Configuration for multi-tenant
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://entreprise-management-server.onrender.com';
+        const companyKey = localStorage.getItem('companyKey') || 'default';
+        
+        // API helper with company key
+        const API = {
+            get: async (endpoint) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Company-Key': companyKey
+                    }
+                });
+                return response.ok ? await response.json() : null;
+            },
+            post: async (endpoint, data) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Company-Key': companyKey
+                    },
+                    body: JSON.stringify(data)
+                });
+                return response.ok ? await response.json() : null;
+            },
+            put: async (endpoint, data) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Company-Key': companyKey
+                    },
+                    body: JSON.stringify(data)
+                });
+                return response.ok ? await response.json() : null;
+            },
+            delete: async (endpoint) => {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        'X-Company-Key': companyKey
+                    }
+                });
+                return response.ok ? await response.json() : null;
+            }
+        };
+
+        // Authentication Manager for multi-tenant
+        class AuthManager {
+            constructor() {
+                this.token = localStorage.getItem('token');
+                this.user = JSON.parse(localStorage.getItem('user') || 'null');
+                this.companyKey = localStorage.getItem('companyKey') || 'default';
+                this.socket = null;
+            }
+
+            async login(username, password) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/company-login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Company-Key': this.companyKey
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.token = data.token;
+                        this.user = data.user;
+                        this.companyKey = data.companyKey;
+                        
+                        localStorage.setItem('token', this.token);
+                        localStorage.setItem('user', JSON.stringify(this.user));
+                        localStorage.setItem('companyKey', this.companyKey);
+                        
+                        return data;
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('Login error:', error);
+                    return null;
+                }
+            }
+
+            logout() {
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+                
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                localStorage.removeItem('companyKey');
+                
+                this.token = null;
+                this.user = null;
+                this.companyKey = null;
+                this.socket = null;
+                
+                window.location.href = 'login-multi.html';
+            }
+
+            isAuthenticated() {
+                return !!this.token;
+            }
+
+            hasPermission(permission) {
+                if (!this.user) return false;
+                return this.user.role === 'admin' || 
+                       (this.user.permissions && this.user.permissions.includes('all')) || 
+                       (this.user.permissions && this.user.permissions.includes(permission));
+            }
+
+            getAuthHeader() {
+                return {
+                    'Authorization': `Bearer ${this.token}`,
+                    'X-Company-Key': this.companyKey
+                };
+            }
+
+            initSocket() {
+                if (this.socket) {
+                    this.socket.disconnect();
+                }
+
+                this.socket = io(API_BASE, {
+                    auth: {
+                        token: this.token,
+                        companyKey: this.companyKey
+                    }
+                });
+
+                this.socket.on('connect', () => {
+                    console.log('Connected to server with company:', this.companyKey);
+                });
+
+                this.socket.on('dataUpdated', (data) => {
+                    window.dispatchEvent(new CustomEvent('dataUpdated', { detail: data }));
+                });
+
+                this.socket.on('userConnected', (user) => {
+                    console.log('User connected:', user);
+                });
+
+                this.socket.on('userDisconnected', (user) => {
+                    console.log('User disconnected:', user);
+                });
+            }
+
+            emitDataChange(type, data) {
+                if (this.socket) {
+                    this.socket.emit('dataChange', { type, data, companyKey: this.companyKey });
+                }
+            }
+        }
+
+        const auth = new AuthManager();
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
         
